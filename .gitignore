@@ -2,3 +2,21 @@
 token.json
 .venv/
 __pycache__/
+sandbox/.worktrees/
+.pytest_cache/
+out/
+*.db
+sandbox/.runs/
+
+# SwiftPM build products and the assembled NightShift.app (Phase 17)
+app/NightShiftUI/.build/
+app/NightShiftUI/.swiftpm/
+
+# Release artifacts. `dist/` holds the frozen daemon and the .dmg (40 MB, rebuilt by
+# `packaging/build_app.sh`); `build/` holds PyInstaller's scratch and the native venv it
+# builds with. Both are outputs — the release attaches them, git does not carry them.
+dist/
+build/
+
+.DS_Store
+.ruff_cache/

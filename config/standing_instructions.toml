@@ -1,0 +1,184 @@
+# Night Shift — standing instructions.
+#
+# Hand-edited, version-controlled config that every night's agents read. Editing this
+# file changes agent behaviour on the next run; no code change is needed.
+#
+# This file is TRUSTED host-authored data: priorities and style below are fed into the
+# agents' prompts. Never paste anything an agent produced (or an email said) into it,
+# and never put a secret here — API keys live in .env / the macOS Keychain.
+#
+# Precedence per field: this file > matching env var (OPENROUTER_MODEL,
+# OPENROUTER_BASE_URL) > built-in default. See config.py.
+# Point at a different file with `--config path.toml` or $NIGHTSHIFT_CONFIG.
+
+version = 1
+
+# What matters, most important first. Agents rank and triage against this list.
+priorities = [
+  "Anything where money is at stake: invoices, payments, billing failures.",
+  "Anything a person is actually blocked on and waiting for a reply to.",
+  "Production or CI breakage on an active project.",
+  "Time-sensitive commitments in the next 48 hours.",
+  "Everything else can wait for the weekly sweep.",
+]
+
+[style]
+tone = "Concise and factual. Plain sentences, no filler, no flattery, no exclamation marks."
+max_summary_sentences = 2
+draft_replies = true
+notes = [
+  "Prefer specifics (names, amounts, dates) over adjectives.",
+  "Say 'no action needed' plainly rather than inventing follow-ups.",
+  "Newsletters, receipts and automated notifications are low urgency unless they report a failure.",
+]
+
+# Per-agent model slugs (OpenRouter). Swap a slug, rerun, done.
+# calendar_agent lands in Phase 14 and project_agent in Phase 9; their slugs are
+# configurable now so those phases inherit a knob instead of inventing one.
+#
+# max_steps / max_cost_usd / max_seconds are the Phase 12 stop conditions, enforced in
+# AgentRunner.run. Whichever is reached first ends the run *cleanly*: the partial work,
+# the transcript and a stop reason ("step_limit" / "cost_limit" / "time_limit") are kept
+# and shown in the briefing. 0 disables the cost and time caps; the step cap has no off
+# switch. Costs are computed from [pricing] below — see the note there about unknown models.
+[agents.email_agent]
+model = "google/gemini-3.5-flash"
+max_tokens = 16000
+max_steps = 4
+max_cost_usd = 0.50
+max_seconds = 600
+
+[agents.calendar_agent]
+model = "google/gemini-3.5-flash"
+max_tokens = 8000
+max_steps = 6
+max_cost_usd = 0.50
+max_seconds = 600
+
+[agents.project_agent]
+model = "anthropic/claude-sonnet-4.5"
+max_tokens = 32000
+max_steps = 40
+max_cost_usd = 5.00
+max_seconds = 3600
+
+# What a model costs, in USD per million tokens — the numbers the cost caps above are
+# evaluated against. They are the provider's prices, so they live in config: they change
+# without a release and differ per routing proxy. Check them against your provider's page.
+#
+# A slug that is NOT listed here is billed at unknown_*, which is deliberately frontier-
+# tier. Pricing an unknown model at zero would silently switch the cost cap off for exactly
+# the case it exists to catch (a slug nobody re-checked); over-pricing one only ends a run
+# early and says "cost_limit" in the briefing.
+[pricing]
+unknown_input_per_mtok = 15.0
+unknown_output_per_mtok = 75.0
+
+[pricing.models."google/gemini-3.5-flash"]
+input_per_mtok = 0.30
+output_per_mtok = 2.50
+
+[pricing.models."anthropic/claude-sonnet-4.5"]
+input_per_mtok = 3.00
+output_per_mtok = 15.00
+
+# How long the transcript store keeps history (Phase 12). One row per agent run per night,
+# each holding a whole model conversation, so this is the one thing here that grows without
+# bound. The nightly run prunes at the end of every night. 0 = keep everything.
+[retention]
+transcript_days = 30
+# Pre-run project snapshots (Phase 13): one per project per night, each a couple of git
+# objects in that project's own repo. Aged out after `snapshot_days`, except that the
+# `snapshot_keep` most recent per project are always kept — an escape hatch that expires
+# is not an escape hatch. 0 days = keep everything.
+snapshot_days = 30
+snapshot_keep = 5
+
+# When the night runs, and what it may do when it wakes (Phase 10). This is the only
+# section the daemon reads before any agent starts. Re-run `orchestrator schedule install
+# --force` after changing `hour`/`minute` — the plist carries the time, everything else is
+# read at run time.
+[schedule]
+hour = 3
+minute = 0
+# Refuse to run on battery. A 40-minute container run unplugged is a dead laptop by 8am;
+# the refusal is written into the briefing rather than swallowed.
+require_ac = true
+# Hold the machine awake (`caffeinate -dims`) for the run window only, released after.
+caffeinate = true
+# launchd relaunches a job that exited non-zero (KeepAlive.SuccessfulExit = false). This
+# bounds a *repeating* crash: after this many retries the run gives up and exits 0.
+max_relaunches = 3
+# How long after `hour:minute` a run may still start. launchd fires the job when it is
+# bootstrapped and when a missed interval catches up on wake; outside this window the run
+# exits immediately without touching last night's briefing. 0 disables the guard.
+window_minutes = 180
+projects = true
+send = true
+since = "8h"
+
+# The wake-up nudge (Phase 15). One banner when a night finishes — successful, failed or
+# skipped — which sits in Notification Center until the lid opens.
+#
+# It says counts and nothing else ("5 emails, 2 need a reply · 3 events · 1 failure"). No
+# subject line or agent sentence ever reaches it: a banner is another rendering surface,
+# and security rule 2 applies to it exactly as it does to the briefing.
+#
+# Delivery is best-effort and never fails a night. `terminal-notifier` is used if it is
+# installed (`brew install terminal-notifier`) because it is the only option that can open
+# the briefing on click; otherwise the built-in `osascript` banner is posted, which cannot.
+# Check it with `uv run python -m orchestrator notify`.
+[notifications]
+enabled = true
+
+[llm]
+# OpenAI-compatible endpoint. The sandbox's egress proxy allowlists exactly this host.
+base_url = "https://ai.hackclub.com/proxy/v1"
+
+# Projects the project agent works on overnight (Phase 9). `goals` is the only text from
+# here that reaches the project agent's prompt — it accepts no untrusted data at all.
+#
+# `push = true` requires two things to be set up first (see README, "Deploy key setup"):
+#   1. an SSH deploy key whose path is `deploy_key` (or $NIGHTSHIFT_DEPLOY_KEY), and
+#   2. a server-side rule on the remote restricting that key to `agent/*`
+#      (hooks/pre-receive here, or a branch-protection rule on GitHub/GitLab).
+# It defaults to false so a fresh checkout never writes to anyone's remote.
+#
+# `active = false` by default here: the agent should not be turned loose on the repo that
+# contains it without the owner deciding to. Flip it, or run `--project nightshift`.
+[[projects]]
+name = "nightshift"
+path = "~/Projects/VScode Projects/NightShift"
+active = false
+priority = 80
+branch_prefix = "agent/"
+remote = "origin"
+push = false
+deploy_key = ""
+merge_into = "main"
+max_steps = 40
+goals = [
+  "never weaken the security rules.",
+  "Keep the test suite green.",
+]
+
+# A deliberately small scratch project, kept active so a manual "Run now" exercises the
+# whole project track end to end: worktree, shell, file tools, commit sweep, diff artifact
+# and a pending merge in the approval queue. `push = false` — there is no agent/*-restricted
+# deploy key for this remote, so the branch stays local until a human pushes it by hand.
+[[projects]]
+name = "test"
+path = "~/Projects/VScode Projects/test"
+active = true
+priority = 90
+branch_prefix = "agent/"
+remote = "origin"
+push = false
+deploy_key = ""
+merge_into = "main"
+max_steps = 12
+goals = [
+  "Rewrite README.md so it describes what this repository actually contains: its purpose, its layout, and how to use anything in it.",
+  "Explore the repo with the shell before writing. Describe only what is really there — invent no features, no install steps and no license.",
+  "Keep it short. A small repo gets a short README, and say plainly if it is a scratch repo.",
+]

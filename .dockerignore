@@ -1,0 +1,9 @@
+.venv/
+.git/
+__pycache__/
+**/__pycache__/
+sandbox/.worktrees/
+.env
+token.json
+*.sock
+run/

@@ -1,76 +1,30 @@
+"""Gmail *reading*: the broker's half of the Google integration.
+
+This module is deliberately read-only. It holds the credential slot the broker uses
+(`google_auth.READ_SLOT`, scoped to `gmail.readonly`) and nothing that can send or
+mutate mail — sending lives in `send_emails.py` behind its own credential, so an
+attacker who reaches the broker's API surface finds no path to an outbound message.
+"""
+
 import base64
-import json
-import os
 from datetime import datetime, timedelta, timezone
 
-# Google automatically adds the "openid" scope to userinfo requests, which makes
-# oauthlib raise a "Scope has changed" error. Relax that check.
-os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
-
-from dotenv import load_dotenv
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-load_dotenv()
+from google_auth import READ_SLOT, load_credentials
+from models import Email
 
-SCOPES = [
-    "https://www.googleapis.com/auth/userinfo.email",
-    "https://www.googleapis.com/auth/userinfo.profile",
-    "https://www.googleapis.com/auth/gmail.modify",
-    "https://www.googleapis.com/auth/gmail.send",
-]
-
-# Where we cache the OAuth token so we don't have to sign in every run.
-TOKEN_FILE = "token.json"
-REDIRECT_PORT = 8765
+# Exported for callers that want to inspect what the read path asks for.
+READ_SCOPES = READ_SLOT.scopes
 
 
-def _client_config():
-    client_id = os.getenv("GOOGLE_CLIENT_ID")
-    client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
-    if not client_id or not client_secret:
-        raise RuntimeError(
-            "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in your .env file."
-        )
-    return {
-        "installed": {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "redirect_uris": [f"http://localhost:{REDIRECT_PORT}/"],
-        }
-    }
+def get_read_credentials(*, interactive: bool = True):
+    """Return the broker's read-only Google credentials (Keychain-backed).
 
-
-def get_credentials():
-    """Return valid user credentials, running the OAuth flow if needed.
-
-    On first run this opens a browser, lets the user grant access, and
-    captures the auth code via a local redirect server. The resulting token
-    is cached in TOKEN_FILE and refreshed automatically afterwards.
+    First use opens a browser for consent; afterwards the token is refreshed silently.
+    See `google_auth` for the storage and scope-budget rules.
     """
-    creds = None
-
-    if os.path.exists(TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
-
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            print("Refreshing expired token...")
-            creds.refresh(Request())
-        else:
-            print("Starting OAuth flow — your browser will open to sign in...")
-            flow = InstalledAppFlow.from_client_config(_client_config(), scopes=SCOPES)
-            creds = flow.run_local_server(port=REDIRECT_PORT)
-            print("Authorization complete.")
-
-        with open(TOKEN_FILE, "w") as token:
-            token.write(creds.to_json())
-
-    return creds
+    return load_credentials(READ_SLOT, interactive=interactive)
 
 
 def _extract_body(payload):
@@ -99,7 +53,7 @@ def _extract_body(payload):
     return plain or html or ""
 
 
-def fetch_emails_last_x_hours(credentials, hours=8):
+def fetch_emails_last_x_hours(credentials, hours: float = 8) -> list[Email]:
     service = build("gmail", "v1", credentials=credentials)
 
     cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
@@ -117,7 +71,7 @@ def fetch_emails_last_x_hours(credentials, hours=8):
 
     print(f"Found {len(messages)} emails. Fetching details...")
 
-    detailed = []
+    detailed: list[Email] = []
     for message in messages:
         msg = (
             service.users()
@@ -130,14 +84,13 @@ def fetch_emails_last_x_hours(credentials, hours=8):
         sender = headers.get("From", "(unknown sender)")
         body = _extract_body(msg["payload"])
         detailed.append(
-            {
-                "id": msg["id"],
-                "sender": sender,
-                "subject": subject,
-                "snippet": msg.get("snippet"),
-                "body": body,
-            }
+            Email(
+                id=msg["id"],
+                sender=sender,
+                subject=subject,
+                snippet=msg.get("snippet"),
+                body=body,
+            )
         )
 
-    emails_json = json.dumps(detailed, indent=2)
     return detailed

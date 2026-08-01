@@ -10,4 +10,39 @@ dependencies = [
     "google-api-python-client>=2.100.0",
     "python-dotenv>=1.2.2",
     "openai>=1.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "httpx>=0.27.0",
+    "docker>=7.1.0",
+    "keyring>=25.7.0",
+]
+
+[dependency-groups]
+app = [
+    "rumps>=0.4.0 ; sys_platform == 'darwin'",
+]
+dev = [
+    "pytest>=9.1.1",
+]
+dist = [
+    "pyinstaller>=6.21.0",
+]
+
+[tool.pytest.ini_options]
+# The code is still flat at the repo root, so tests import `api`, `emails`, ... directly.
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    # Needs colima + Docker. Skipped unless NIGHTSHIFT_SANDBOX_TESTS=1, so `uv run pytest`
+    # stays fast and green on a machine with no VM running.
+    "sandbox: requires a running colima/Docker daemon",
+    # Mutates the user's real launchd domain. Skipped unless NIGHTSHIFT_LAUNCHD_TESTS=1 so
+    # `uv run pytest` never leaves a job loaded behind it.
+    "launchd: bootstraps a job into the user's launchd domain",
+    # Builds real AppKit menu objects. Skipped unless NIGHTSHIFT_GUI_TESTS=1 so a headless
+    # run (CI, ssh) never fails on a missing window server.
+    "gui: needs a macOS GUI session (AppKit/rumps)",
+    # Compiles the SwiftUI client. Skipped unless NIGHTSHIFT_SWIFT_TESTS=1 so the Python
+    # suite does not need a Swift toolchain to be green.
+    "swift: builds the SwiftUI client (needs the Swift toolchain)",
 ]

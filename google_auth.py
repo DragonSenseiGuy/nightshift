@@ -1,6 +1,6 @@
 """Host-side Google OAuth: least-privilege credential slots kept in the Keychain.
 
-Two rules from `CLAUDE.md` shape this module.
+Two of the project's security rules shape this module.
 
 *Secrets never enter the sandbox, and the broker only reads.* The broker owns the
 read path, so it must never be holding a credential that can send mail. Credentials

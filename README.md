@@ -7,7 +7,7 @@ project, and a queue of proposed actions, draft replies, branch merges, all that
 
 ## Demo
 
-**[Watch the demo (1 min)](docs/nightshift-demo.mp4)** — the app running in demo mode, from
+**[Watch the demo (1 min)](https://cdn.hackclub.com/019fbb29-2ade-7f2e-b425-d40d569fc1d8/nightshift-demo.mp4)** — the app running in demo mode, from
 the .dmg to approving an action.
 
 <img src="docs/menu.png" alt="The menu bar panel in demo mode" width="380">

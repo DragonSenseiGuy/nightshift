@@ -1,5 +1,5 @@
 #!/bin/bash
-# Regenerate the README screenshots.
+# Regenerate the README screenshots into docs/.
 #
 # The briefing is captured headlessly (Chrome renders the same self-contained HTML the app
 # opens, so the shot is deterministic and can be regenerated in CI or after a style change).
@@ -13,7 +13,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-OUT="docs/screenshots"
+OUT="docs"
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 DEMO_ROOT="$HOME/Library/Application Support/NightShift/demo"
 
@@ -44,9 +44,9 @@ cat <<'TXT'
 Now the two app windows, by hand (⌘⇧4 then Space captures one window):
 
   1. open app/NightShiftUI/.build/NightShift.app     # or /Applications/NightShift.app
-  2. Click the moon in the menu bar → capture the panel  → docs/screenshots/menu.png
-  3. "Review approvals…" → capture the window            → docs/screenshots/approvals.png
-  4. "Run history & transcripts" → open the project run  → docs/screenshots/transcript.png
+  2. Click the moon in the menu bar → capture the panel  → docs/menu.png
+  3. "Review approvals…" → capture the window            → docs/approvals.png
+  4. "Run history & transcripts" → open the project run  → docs/transcript.png
 
 The app must be showing the demo-mode banner for these; if it is not, quit any daemon on
 port 8402 first (a real daemon takes priority over the demo, by design).

@@ -10,6 +10,11 @@ project, and a queue of proposed actions, draft replies, branch merges, all that
 **[Watch the demo (1 min)](docs/nightshift-demo.mp4)** — the app running in demo mode, from
 the .dmg to approving an action.
 
+<img src="docs/menu.png" alt="The menu bar panel in demo mode" width="380">
+
+*The menu bar panel on a first launch: three proposed actions waiting, and a banner saying
+this is the canned night — approving here sends nothing.*
+
 A morning briefing in full, if you want to read one rather than watch it:
 [the inbox and the day](docs/briefing.png) (email triaged by urgency, with an email that
 tried to hijack the agent reading it summarised as what it is), and

@@ -10,13 +10,10 @@ project, and a queue of proposed actions, draft replies, branch merges, all that
 **[Watch the demo (1 min)](docs/nightshift-demo.mp4)** — the app running in demo mode, from
 the .dmg to approving an action.
 
-![The morning briefing](docs/briefing.png)
-
-*The morning briefing: email triaged by urgency with draft replies that have not been sent,
-today's calendar with prep notes, and task triage. At the top of the inbox is an email that
-tried to hijack the agent reading it, summarised as what it is. [The rest of the
-artifact](docs/briefing-projects.png) is last night's project work, the agents' own notes,
-and everything that went wrong.*
+A morning briefing in full, if you want to read one rather than watch it:
+[the inbox and the day](docs/briefing.png) (email triaged by urgency, with an email that
+tried to hijack the agent reading it summarised as what it is), and
+[last night's project work](docs/briefing-projects.png).
 
 ---
 

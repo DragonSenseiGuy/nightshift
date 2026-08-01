@@ -147,3 +147,8 @@ open out/briefing.html
 uv run python -m orchestrator schedule install    # see "Running it nightly" below
 uv run python -m app                              # 🌙 in the menu bar
 ```
+
+
+## AI disclosure
+
+AI coding assistance was used during implementation, debugging and build verification. Product direction and final acceptance remained with me.
